@@ -1,9 +1,8 @@
 package lem.zona_fit.gui;
 
+
 import lem.zona_fit.models.Cliente;
-import lem.zona_fit.repositorios.RCliente;
 import lem.zona_fit.servicios.SCliente;
-import lem.zona_fit.servicios.SClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +12,6 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
-import java.util.ArrayList;
-import java.util.List;
 
 @Component
 public class ClientesForm extends JFrame {
@@ -42,8 +39,9 @@ public class ClientesForm extends JFrame {
 
     @Autowired //Constructor
     public ClientesForm(SCliente sCliente){
-        this.sCliente = sCliente;
+
         inicializarComponentes();
+        this.sCliente = sCliente;
         inicializarTabla();
         dobleClickTabla();
         setBtnGuardar();
@@ -72,11 +70,16 @@ public class ClientesForm extends JFrame {
     }
 
     private void inicializarComponentes() {
-       setContentPane(JpPrincipal);
-       setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-       setTitle("Clientes Zona Fit");
-       setExtendedState(JFrame.MAXIMIZED_BOTH);
-       setLocationRelativeTo(null);
+        try {
+            setContentPane(JpPrincipal);
+            setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            setTitle("Clientes Zona Fit");
+            setExtendedState(JFrame.MAXIMIZED_BOTH);
+            setLocationRelativeTo(null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
     private void minUndMaxApp(){
@@ -142,36 +145,29 @@ public class ClientesForm extends JFrame {
         tblClientes.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                var row = tblClientes.getSelectedRow();
-                var column = tblClientes.getSelectedColumn();
-                if(row != -1 && column != -1){
-                    Object value = tblClientes.getValueAt(row, column);
-                    /*
-                    var value1 = tblClientes.getValueAt(row, 1);
-                    var value2 = tblClientes.getValueAt(row, 2);
-                    var value3 = tblClientes.getValueAt(row, 3);
-                    txtNombre.setText(value1.toString());
-                    txtApellido.setText(value2.toString());
-                    txtMembresia.setText(value3.toString());*/
-
-                    idCliente = (Integer) tblClientes.getValueAt(row,0);
-                    txtNombre.setText(sCliente.getClientes().get(row).getNombre());
-                    txtApellido.setText(sCliente.getClientes().get(row).getApellido());
-                    txtMembresia.setText(sCliente.getClientes().get(row).getMembresia().toString());
-
-                }
-                super.mouseClicked(e);
+                if (e.getClickCount() == 2) {
+                    var row = tblClientes.getSelectedRow();
+                    if (row != -1) {
+                        var id = tblClientes.getValueAt(row, 0).toString();
+                        idCliente = Integer.parseInt(id);
+                        var nombre = tblClientes.getModel().getValueAt(row,1).toString();
+                        txtNombre.setText(nombre);
+                        var apellido = tblClientes.getModel().getValueAt(row,2).toString();
+                        txtApellido.setText(apellido);
+                        var membresia = tblClientes.getModel().getValueAt(row,3).toString();
+                        txtMembresia.setText(membresia);
+                    }
+                    super.mouseClicked(e);
+            }
             }
         });
 
     }
 
     private void salirApp(){
-        var respuesta = JOptionPane.showConfirmDialog(ClientesForm.this,
-                "¿Deseas cerrar la aplicacion?",
-                "Confirmar",
-                JOptionPane.YES_NO_OPTION);
-        if(respuesta == JOptionPane.YES_OPTION){
+       int respuesta = mostrarOpcionMensaje("¿Deseas cerrar la aplicacion?",
+                "Confirmar");
+        if(respuesta == 0){
             System.exit(0);
         }
     }
@@ -194,7 +190,9 @@ public class ClientesForm extends JFrame {
         btnLimpiar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                limpiarTextFields();
+               if(validarCampos()) {
+                   limpiarTextFields();
+               }
             }
         });
     }
@@ -206,27 +204,34 @@ public class ClientesForm extends JFrame {
         txtBuscar.setText("");
         txtNombre.requestFocus();
         idCliente = null;
+        this.tblClientes.getSelectionModel().clearSelection();
     }
     private void setBtnEliminar(){
         btnEliminar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                var respuesta = JOptionPane.showConfirmDialog(ClientesForm.this,
-                        "¿Esta seguro que desea eliminar el cliente?",
-                        "Eliminar",
-                        JOptionPane.YES_NO_OPTION);
-                if(respuesta == JOptionPane.YES_OPTION){
-                    Cliente cliente = new Cliente();
-                    cliente.setId(idCliente);
-                   boolean resp = sCliente.deleteCliente(cliente.getId());
-                   if(resp){
-                       listarClientes();
-                   }
+                if (validarCampos()) {
+
+                    var respuesta = mostrarOpcionMensaje("¿Esta seguro que desea eliminar el cliente?",
+                            "Eliminar");
+                    if (respuesta == 0) {
+                        Cliente cliente = new Cliente();
+                        cliente.setId(idCliente);
+                        boolean resp = sCliente.deleteCliente(cliente.getId());
+                        if (resp) {
+                            listarClientes();
+                            mostrarMensaje("Cliente eliminado exitosamente");
+                            limpiarTextFields();
+                        }
 
 
-                }limpiarTextFields();
+                    } else {
+                        mostrarMensaje("El cliente no fue eliminado ");
+                        limpiarTextFields();
+                    }
 
 
+                }
             }
         });
     }
@@ -243,29 +248,25 @@ public class ClientesForm extends JFrame {
 
 
                     if (idCliente == null) { // Guardar nuevo cliente
-                        System.out.println("Cliente id guardar : " + idCliente);
                         var respuesta = sCliente.saveCliente(cliente);
                         if (respuesta) {
                             listarClientes();
-                            System.out.println("Cliente Guardado");
+                            mostrarMensaje("Cliente guardado exitosamente");
                             limpiarTextFields();
                         } else {
-                            System.out.println("Error al guardar el Cliente");
+                            mostrarMensaje("Error al guardar el cliente");
                         }
                     } else { // Actualizar cliente existente
                         cliente.setId(idCliente); // Asignar idCliente
-                        System.out.println("Cliente id actualizar: " + idCliente); // Verifica el valor de idCliente
                         var respuesta = sCliente.updateCliente(cliente);
                         if (respuesta) {
                             listarClientes();
-                            System.out.println("Cliente Actualizado");
+                            mostrarMensaje("Cliente actualizado exitosamente");
                             limpiarTextFields();
                         } else {
-                            System.out.println("Error al actualizar Cliente");
+                            mostrarMensaje("Error al actualizar el cliente");
                         }
                     }
-                } else {
-                    System.out.println("Campos vacíos o datos inválidos");
                 }
             }
         });
@@ -299,6 +300,14 @@ public class ClientesForm extends JFrame {
             }
 
         });
+    }
+    private void mostrarMensaje(String mensaje){
+        JOptionPane.showMessageDialog(this, mensaje);
+    }
+    private int mostrarOpcionMensaje(String mensaje, String titulo){
+        return JOptionPane.showConfirmDialog(this, mensaje, titulo, JOptionPane.YES_NO_OPTION);
+
+
     }
 
 
